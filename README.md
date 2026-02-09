@@ -1,0 +1,2 @@
+# 1lp7XngTC0Nnc6SaA_-KlZ0SZVuRiVml6ICZ5L2riQTo
+仕入れ管理Ver.2のコード
