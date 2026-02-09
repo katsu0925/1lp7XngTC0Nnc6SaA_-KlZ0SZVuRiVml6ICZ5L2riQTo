@@ -1,4 +1,3 @@
-const CONFIG_SHEET_NAME = '設定';
 const AI_SHEET_NAME = 'AIキーワード抽出';
 
 const COLUMN_NAMES = {
@@ -25,12 +24,6 @@ function onOpen() {
     .addItem('1. 回収完了リストを更新(抽出)', 'generateCompletionList')
     .addItem('2. 配布用リスト作成(チェック行を印刷・CSV用)', 'createBuyerSheet')
     .addItem('3. 売却反映(チェック行を一括処理)', 'processSelectedSales')
-    .addSeparator()
-    .addItem('ハイブランドソート', 'runHighBrandSort')
-    .addSeparator()
-    .addItem('マニュアル', 'showManual')
-    .addItem('基本設定', 'showBasicSettings')
-    .addItem('手数料設定', 'showFeeSettings')
     .addSeparator()
     .addSubMenu(invMenu)
     .addToUi();
@@ -359,7 +352,7 @@ function processSelectedSales() {
     return;
   }
 
-  ss.toast('ステータス＋まとめID反映と削除を開始します...', '処理中', 30);
+  ss.toast('ステータス反映と削除を開始します...', '処理中', 30);
 
   var headerRow = main.getRange(1, 1, 1, main.getLastColumn()).getValues()[0];
   var colMap = {};
@@ -372,8 +365,6 @@ function processSelectedSales() {
     Browser.msgBox('エラー：ステータス列が見つかりません。「★列とシートの診断」を実行してください。');
     return;
   }
-
-  var summaryCol = colMap['まとめID'] || 67;
 
   var idCol = colMap['管理番号'];
   if (!idCol) {
@@ -399,7 +390,6 @@ function processSelectedSales() {
   var rowsToDelete = [];
   var uniqueRowSet = {};
   var statusRows = [];
-  var summaryMap = {};
 
   for (var i = 0; i < values.length; i++) {
     var rowData = values[i];
@@ -419,11 +409,6 @@ function processSelectedSales() {
       uniqueRowSet[tgtRow] = true;
       statusRows.push(tgtRow);
     }
-
-    var summaryId = rowData[12];
-    if (summaryId !== '' && summaryId != null) {
-      summaryMap[tgtRow] = summaryId;
-    }
   }
 
   if (rowsToDelete.length === 0) {
@@ -438,35 +423,13 @@ function processSelectedSales() {
   }
   main.getRangeList(statusA1s).setValue('売却済み');
 
-  var summaryKeys = Object.keys(summaryMap);
-  if (summaryKeys.length > 0) {
-    var minRow = null;
-    var maxRow = null;
-    for (var b = 0; b < summaryKeys.length; b++) {
-      var r = Number(summaryKeys[b]);
-      if (minRow === null || r < minRow) minRow = r;
-      if (maxRow === null || r > maxRow) maxRow = r;
-    }
-
-    var height = maxRow - minRow + 1;
-    var rng = main.getRange(minRow, summaryCol, height, 1);
-    var cur = rng.getValues();
-
-    for (var c = 0; c < summaryKeys.length; c++) {
-      var rr = Number(summaryKeys[c]);
-      cur[rr - minRow][0] = summaryMap[rr];
-    }
-
-    rng.setValues(cur);
-  }
-
   SpreadsheetApp.flush();
 
   rowsToDelete.sort(function (x, y) { return y - x; }).forEach(function (r) {
     sh.deleteRow(r);
   });
 
-  ss.toast(rowsToDelete.length + '件を処理しました（売却済み＋まとめID反映＋回収完了から削除）', '処理完了', 5);
+  ss.toast(rowsToDelete.length + '件を処理しました（売却済み反映＋回収完了から削除）', '処理完了', 5);
 
   // _colToA1Letter_ は Utils.gs の colNumToLetter_ に統合済み
 }
@@ -518,153 +481,3 @@ function sortByField(sheet) {
   }
 }
 
-const BASIC_HEADER_ROW = 3;
-const BASIC_START_COL = 1;
-const BASIC_END_COL = 13;
-const FEE_HEADER_ROW = 3;
-const FEE_START_COL = 13;
-const FEE_NUM_COLS = 3;
-
-function showManual() { const html = HtmlService.createHtmlOutputFromFile('Manual').setTitle('マニュアル'); SpreadsheetApp.getUi().showSidebar(html); }
-function showBasicSettings() { const html = HtmlService.createHtmlOutputFromFile('BasicSettings').setTitle('基本設定'); SpreadsheetApp.getUi().showSidebar(html); }
-function showFeeSettings() { const html = HtmlService.createHtmlOutputFromFile('FeeSettings').setTitle('手数料設定'); SpreadsheetApp.getUi().showSidebar(html); }
-function getBasicHeaders() { const sh = SpreadsheetApp.getActive().getSheetByName(CONFIG_SHEET_NAME); return sh.getRange(BASIC_HEADER_ROW, BASIC_START_COL, 1, BASIC_END_COL - BASIC_START_COL + 1).getValues()[0]; }
-function getColumnData(colIndex1Based) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(CONFIG_SHEET_NAME);
-  const targetCol = BASIC_START_COL + (colIndex1Based - 1);
-  const startRow = BASIC_HEADER_ROW + 1;
-  const lastRow = Math.max(sh.getLastRow(), startRow);
-  const numRows = lastRow - startRow + 1;
-  const raw = sh.getRange(startRow, targetCol, numRows, 1).getValues().map(r => r[0]);
-  const values = raw.filter(v => String(v).trim() !== '');
-  const header = sh.getRange(BASIC_HEADER_ROW, targetCol).getValue();
-  return { index: colIndex1Based, header, values };
-}
-function saveColumn(colIndex1Based, newHeader, values) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(CONFIG_SHEET_NAME);
-  const targetCol = BASIC_START_COL + (colIndex1Based - 1);
-  sh.getRange(BASIC_HEADER_ROW, targetCol).setValue(newHeader || '');
-  const startRow = BASIC_HEADER_ROW + 1;
-  const data = (values || []).map(v => [v]);
-  const maxNeeded = startRow + data.length - 1;
-  if (maxNeeded > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), maxNeeded - sh.getMaxRows());
-  const lastRow = Math.max(sh.getLastRow(), startRow);
-  const clearRows = Math.max(lastRow - startRow + 1, 1);
-  sh.getRange(startRow, targetCol, clearRows, 1).clearContent();
-  if (data.length) sh.getRange(startRow, targetCol, data.length, 1).setValues(data);
-  return 'OK';
-}
-function getFeeSettings() {
-  const sh = SpreadsheetApp.getActive().getSheetByName(CONFIG_SHEET_NAME);
-  const headerRange = sh.getRange(FEE_HEADER_ROW, FEE_START_COL, 1, FEE_NUM_COLS);
-  if (!headerRange.getValues()[0][0]) headerRange.setValues([['販売場所名', '手数料率', '有効フラグ']]);
-  const last = sh.getLastRow();
-  const values = last > FEE_HEADER_ROW ? sh.getRange(FEE_HEADER_ROW + 1, FEE_START_COL, last - FEE_HEADER_ROW, FEE_NUM_COLS).getValues() : [];
-  return values.filter(r => String(r[0] || '').trim() !== '');
-}
-function saveFeeSettings(rows) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(CONFIG_SHEET_NAME);
-  sh.getRange(FEE_HEADER_ROW, FEE_START_COL, 1, FEE_NUM_COLS).setValues([['販売場所名', '手数料率', '有効フラグ']]);
-  const startRow = FEE_HEADER_ROW + 1;
-  const clearRows = Math.max(sh.getMaxRows() - FEE_HEADER_ROW, 1);
-  sh.getRange(startRow, FEE_START_COL, clearRows, FEE_NUM_COLS).clearContent();
-  if (rows && rows.length) {
-    const norm = rows.map(r => [r[0] || '', parseFloat(r[1]) || 0, r[2] === true || String(r[2]).toUpperCase() === 'TRUE']);
-    sh.getRange(startRow, FEE_START_COL, norm.length, FEE_NUM_COLS).setValues(norm);
-  }
-  return 'OK';
-}
-function warmUp() { SpreadsheetApp.getActive(); return 'OK'; }
-
-function runHighBrandSort() {
-  const TARGET_SHEET_NAME = '回収完了';
-  const AI_BRAND_SHEET_NAME = 'ブランドAI判定';
-  const TARGET_START_ROW = 7;
-  const TARGET_BRAND_COL = 4;
-  const AI_DEFAULT_BRAND_COL = 1;
-  const AI_DEFAULT_MEDIAN_COL = 5;
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const targetSheet = ss.getSheetByName(TARGET_SHEET_NAME);
-  const aiSheet = ss.getSheetByName(AI_BRAND_SHEET_NAME);
-
-  if (!targetSheet) throw new Error('回収完了 シートが見つかりません: ' + TARGET_SHEET_NAME);
-  if (!aiSheet) throw new Error('ブランドAI判定 シートが見つかりません: ' + AI_BRAND_SHEET_NAME);
-
-  const medianMap = buildMedianMap_(aiSheet, AI_DEFAULT_BRAND_COL, AI_DEFAULT_MEDIAN_COL);
-
-  const lastRow = targetSheet.getLastRow();
-  const lastCol = targetSheet.getLastColumn();
-  if (lastRow < TARGET_START_ROW) return;
-
-  const numRows = lastRow - TARGET_START_ROW + 1;
-
-  targetSheet.insertColumnAfter(lastCol);
-  const helperCol = lastCol + 1;
-
-  const headerRow = TARGET_START_ROW - 1;
-  if (headerRow >= 1) {
-    targetSheet.getRange(headerRow, helperCol).setValue('AI_中央値キー');
-  }
-
-  const brandValues = targetSheet.getRange(TARGET_START_ROW, TARGET_BRAND_COL, numRows, 1).getValues();
-  const helperValues = new Array(numRows);
-
-  for (let i = 0; i < numRows; i++) {
-    const brand = normalizeBrand_(brandValues[i][0]);
-    const key = brand && medianMap.has(brand) ? medianMap.get(brand) : -1;
-    helperValues[i] = [key];
-  }
-
-  targetSheet.getRange(TARGET_START_ROW, helperCol, numRows, 1).setValues(helperValues);
-
-  const sortRange = targetSheet.getRange(TARGET_START_ROW, 1, numRows, helperCol);
-  sortRange.sort([
-    { column: helperCol, ascending: false },
-    { column: TARGET_BRAND_COL, ascending: true }
-  ]);
-
-  targetSheet.deleteColumn(helperCol);
-}
-
-function buildMedianMap_(aiSheet, fallbackBrandCol, fallbackMedianCol) {
-  const lastRow = aiSheet.getLastRow();
-  const lastCol = aiSheet.getLastColumn();
-  if (lastRow < 2 || lastCol < 1) return new Map();
-
-  const header = aiSheet.getRange(1, 1, 1, lastCol).getValues()[0];
-
-  let brandCol = findColByCandidates_(header, ['ブランド', 'brand', 'Brand', 'BRAND']);
-  let medianCol = findColByCandidates_(header, ['中央値', '推定中央値', 'AI_推定中央値', 'AI_推定中央値(円)', 'median', 'Median']);
-
-  if (!brandCol) brandCol = fallbackBrandCol;
-  if (!medianCol) medianCol = fallbackMedianCol;
-
-  const values = aiSheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-  const map = new Map();
-
-  for (let i = 0; i < values.length; i++) {
-    const row = values[i];
-    const brand = normalizeBrand_(row[brandCol - 1]);
-    if (!brand) continue;
-
-    const median = toNumber_(row[medianCol - 1]);
-    if (median === null) continue;
-
-    if (!map.has(brand) || median > map.get(brand)) {
-      map.set(brand, median);
-    }
-  }
-
-  return map;
-}
-
-// findHeaderCol_, toNumber_ は Utils.gs に統合済み
-// normalizeBrand_ は trim のみのため Utils.normalizeText_ でカバー
-
-function normalizeBrand_(v) {
-  if (v === null || v === undefined) return '';
-  const s = String(v).trim();
-  if (!s) return '';
-  return s;
-}
