@@ -359,7 +359,7 @@ function processSelectedSales() {
     return;
   }
 
-  ss.toast('ステータス＋まとめID反映と削除を開始します...', '処理中', 30);
+  ss.toast('ステータス反映と削除を開始します...', '処理中', 30);
 
   var headerRow = main.getRange(1, 1, 1, main.getLastColumn()).getValues()[0];
   var colMap = {};
@@ -372,8 +372,6 @@ function processSelectedSales() {
     Browser.msgBox('エラー：ステータス列が見つかりません。「★列とシートの診断」を実行してください。');
     return;
   }
-
-  var summaryCol = colMap['まとめID'] || 67;
 
   var idCol = colMap['管理番号'];
   if (!idCol) {
@@ -399,7 +397,6 @@ function processSelectedSales() {
   var rowsToDelete = [];
   var uniqueRowSet = {};
   var statusRows = [];
-  var summaryMap = {};
 
   for (var i = 0; i < values.length; i++) {
     var rowData = values[i];
@@ -419,11 +416,6 @@ function processSelectedSales() {
       uniqueRowSet[tgtRow] = true;
       statusRows.push(tgtRow);
     }
-
-    var summaryId = rowData[12];
-    if (summaryId !== '' && summaryId != null) {
-      summaryMap[tgtRow] = summaryId;
-    }
   }
 
   if (rowsToDelete.length === 0) {
@@ -438,35 +430,13 @@ function processSelectedSales() {
   }
   main.getRangeList(statusA1s).setValue('売却済み');
 
-  var summaryKeys = Object.keys(summaryMap);
-  if (summaryKeys.length > 0) {
-    var minRow = null;
-    var maxRow = null;
-    for (var b = 0; b < summaryKeys.length; b++) {
-      var r = Number(summaryKeys[b]);
-      if (minRow === null || r < minRow) minRow = r;
-      if (maxRow === null || r > maxRow) maxRow = r;
-    }
-
-    var height = maxRow - minRow + 1;
-    var rng = main.getRange(minRow, summaryCol, height, 1);
-    var cur = rng.getValues();
-
-    for (var c = 0; c < summaryKeys.length; c++) {
-      var rr = Number(summaryKeys[c]);
-      cur[rr - minRow][0] = summaryMap[rr];
-    }
-
-    rng.setValues(cur);
-  }
-
   SpreadsheetApp.flush();
 
   rowsToDelete.sort(function (x, y) { return y - x; }).forEach(function (r) {
     sh.deleteRow(r);
   });
 
-  ss.toast(rowsToDelete.length + '件を処理しました（売却済み＋まとめID反映＋回収完了から削除）', '処理完了', 5);
+  ss.toast(rowsToDelete.length + '件を処理しました（売却済み反映＋回収完了から削除）', '処理完了', 5);
 
   // _colToA1Letter_ は Utils.gs の colNumToLetter_ に統合済み
 }
