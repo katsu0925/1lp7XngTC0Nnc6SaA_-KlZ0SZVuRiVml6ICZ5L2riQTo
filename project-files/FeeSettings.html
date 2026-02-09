@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>手数料設定</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:16px;}
+  h1{font-size:18px;margin:0 0 12px;}
+  table{border-collapse:collapse;width:100%;}
+  th,td{border:1px solid #ddd;padding:6px;}
+  th{background:#f7f7f7;}
+  input[type="text"],input[type="number"]{width:100%;box-sizing:border-box;}
+  .row{margin-top:12px;display:flex;gap:8px}
+  button{padding:8px 12px;border:1px solid #ccc;border-radius:8px;cursor:pointer;}
+  #status{color:#007ACC;margin-top:8px;}
+</style>
+</head>
+<body>
+  <h1>手数料設定（M:販売場所名 / N:手数料率 / O:有効フラグ）</h1>
+  <table id="tbl">
+    <thead><tr><th>#</th><th>販売場所名</th><th>手数料率</th><th>有効</th><th>削除</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div class="row">
+    <button onclick="addRow()">行を追加</button>
+    <button onclick="save()">保存</button>
+  </div>
+  <p id="status"></p>
+
+<script>
+function setStatus(msg){ document.getElementById('status').textContent = msg || ''; }
+
+function load(){
+  setStatus('読み込み中...');
+  google.script.run.withSuccessHandler(function(rows){
+    const tbody=document.querySelector('#tbl tbody');
+    tbody.innerHTML='';
+    (rows&&rows.length?rows:[['',0,true]]).forEach((r,i)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+        <td>${i+1}</td>
+        <td><input type="text" value="${r[0]||''}"></td>
+        <td><input type="number" step="0.0001" value="${r[1]||0}"></td>
+        <td style="text-align:center"><input type="checkbox" ${r[2]===true||String(r[2]).toUpperCase()==='TRUE'?'checked':''}></td>
+        <td style="text-align:center"><button onclick="del(this)">✕</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    setStatus('');
+  }).getFeeSettings();
+}
+
+function addRow(){
+  const tbody=document.querySelector('#tbl tbody');
+  const i=tbody.children.length;
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
+    <td>${i+1}</td>
+    <td><input type="text" value=""></td>
+    <td><input type="number" step="0.0001" value="0"></td>
+    <td style="text-align:center"><input type="checkbox" checked></td>
+    <td style="text-align:center"><button onclick="del(this)">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function del(btn){
+  const tr=btn.closest('tr'); tr.remove();
+  [...document.querySelectorAll('#tbl tbody tr')].forEach((r,i)=>r.firstElementChild.textContent=i+1);
+}
+
+function save(){
+  const trs=[...document.querySelectorAll('#tbl tbody tr')];
+  const rows=trs.map(tr=>[
+    tr.querySelector('td:nth-child(2) input').value.trim(),
+    parseFloat(tr.querySelector('td:nth-child(3) input').value || '0'),
+    tr.querySelector('td:nth-child(4) input').checked
+  ]).filter(r=>r[0] !== '');
+  setStatus('保存中...');
+  google.script.run.withSuccessHandler(function(){
+    setStatus('保存しました'); setTimeout(function(){ setStatus(''); }, 3000);
+  }).saveFeeSettings(rows);
+}
+
+load();
+</script>
+</body>
+</html>
