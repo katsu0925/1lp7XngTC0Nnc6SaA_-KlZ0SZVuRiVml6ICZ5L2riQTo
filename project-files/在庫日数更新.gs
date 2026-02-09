@@ -32,7 +32,6 @@ function recalcZaikoNissu() {
 
   var endStatuses = ['発送済み', '発送待ち', '売却済み', 'キャンセル', '返品済み', '廃棄済み'];
 
-  var tz = Session.getScriptTimeZone();
   var today = new Date();
   today.setHours(0, 0, 0, 0);
 

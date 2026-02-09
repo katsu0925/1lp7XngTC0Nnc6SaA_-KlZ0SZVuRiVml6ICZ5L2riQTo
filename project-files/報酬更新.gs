@@ -72,24 +72,20 @@ function updateRewardsNoFormula() {
     Logger.log('MASTER name=%s K(%%)=%s Q(%%対象)=%s', nm, rates[nm].K, rates[nm].Q);
   }
 
+  // 改善: 16回の個別 getRange → 1回のバッチ読み取り
   var lastRowP = shP.getLastRow();
   var nP = Math.max(0,lastRowP-1);
-  var AI = nP? shP.getRange(2,col_('AI'),nP,1).getValues().flat():[];
-  var AJ = nP? shP.getRange(2,col_('AJ'),nP,1).getValues().flat():[];
-  var AG = nP? shP.getRange(2,col_('AG'),nP,1).getValues().flat():[];
-  var AH = nP? shP.getRange(2,col_('AH'),nP,1).getValues().flat():[];
-  var AK = nP? shP.getRange(2,col_('AK'),nP,1).getValues().flat():[];
-  var AL = nP? shP.getRange(2,col_('AL'),nP,1).getValues().flat():[];
-  var BE = nP? shP.getRange(2,col_('BE'),nP,1).getValues().flat():[];
-  var BF = nP? shP.getRange(2,col_('BF'),nP,1).getValues().flat():[];
-  var AP = nP? shP.getRange(2,col_('AP'),nP,1).getValues().flat():[];
-  var AV = nP? shP.getRange(2,col_('AV'),nP,1).getValues().flat():[];
-  var AY = nP? shP.getRange(2,col_('AY'),nP,1).getValues().flat():[];
-  var BH = nP? shP.getRange(2,col_('BH'),nP,1).getValues().flat():[];
-  var BI = nP? shP.getRange(2,col_('BI'),nP,1).getValues().flat():[];
-  var BA = nP? shP.getRange(2,col_('BA'),nP,1).getValues().flat():[];
-  var CN = nP? shP.getRange(2,3,nP,1).getValues().flat():[];
-  var AM = nP? shP.getRange(2,col_('AM'),nP,1).getValues().flat():[];
+  var lastColP = nP ? shP.getLastColumn() : 0;
+  var allP = nP ? shP.getRange(2, 1, nP, lastColP).getValues() : [];
+  var _c = function(a1) { return col_(a1) - 1; }; // 0-based index
+  var AI=[],AJ=[],AG=[],AH=[],AK=[],AL=[],BE=[],BF=[],AP=[],AV=[],AY=[],BH=[],BI=[],BA=[],CN=[],AM=[];
+  for (var pi=0; pi<nP; pi++) {
+    var pr = allP[pi];
+    AI[pi]=pr[_c('AI')]; AJ[pi]=pr[_c('AJ')]; AG[pi]=pr[_c('AG')]; AH[pi]=pr[_c('AH')];
+    AK[pi]=pr[_c('AK')]; AL[pi]=pr[_c('AL')]; BE[pi]=pr[_c('BE')]; BF[pi]=pr[_c('BF')];
+    AP[pi]=pr[_c('AP')]; AV[pi]=pr[_c('AV')]; AY[pi]=pr[_c('AY')]; BH[pi]=pr[_c('BH')];
+    BI[pi]=pr[_c('BI')]; BA[pi]=pr[_c('BA')]; CN[pi]=pr[2]; AM[pi]=pr[_c('AM')];
+  }
 
   var cntAI_AJ = {};
   var cntAG_AH = {};
@@ -227,10 +223,9 @@ function updateRewardsNoFormula() {
 }
 
 function setupDailyTrigger() {
-  var fn = 'updateRewardsNoFormula';
-  var ts = ScriptApp.getProjectTriggers();
-  for (var i=0;i<ts.length;i++){ if (ts[i].getHandlerFunction()===fn) ScriptApp.deleteTrigger(ts[i]) }
-  ScriptApp.newTrigger(fn).timeBased().everyDays(1).atHour(3).create();
+  replaceTrigger_('updateRewardsNoFormula', function(tb) {
+    tb.timeBased().everyDays(1).atHour(3).create();
+  });
 }
 
 function runOnceNow() {
