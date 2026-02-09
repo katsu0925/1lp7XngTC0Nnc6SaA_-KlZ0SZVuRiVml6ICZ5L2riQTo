@@ -34,11 +34,8 @@ function rc_bulkCheckVisibleRowsAndSetBatchId() {
 
     const n = endRow - startRow + 1;
 
-    const keyValues = sheet.getRange(startRow, RC_BULK_KEY_COL, n, 1).getValues();
-
-    const visibleFlags = rc_getVisibleFlagsFast_(ss.getId(), sheet.getSheetId(), sheet.getName(), startRow, endRow);
-    const useFast = Array.isArray(visibleFlags) && visibleFlags.length === n;
-
+    // チェックボックス（A列）がチェック済みの行だけを対象にする
+    const checkValues = sheet.getRange(startRow, RC_CHECKBOX_COL, n, 1).getValues();
     const mValues = sheet.getRange(startRow, RC_OUTPUT_COL, n, 1).getValues();
 
     const prefix = Utilities.formatDate(new Date(), RC_TZ, 'yyMMdd');
@@ -51,29 +48,15 @@ function rc_bulkCheckVisibleRowsAndSetBatchId() {
 
     const targets = new Array(n).fill(false);
 
-    if (useFast) {
-      for (let i = 0; i < n; i++) {
-        if (!visibleFlags[i]) continue;
-        const kv = keyValues[i][0];
-        if (kv === null || kv === '') continue;
-        if (typeof kv === 'string' && kv.trim() === '') continue;
-        targets[i] = true;
-      }
-    } else {
-      for (let i = 0; i < n; i++) {
-        const r = startRow + i;
-        if (sheet.isRowHiddenByFilter(r)) continue;
-        if (sheet.isRowHiddenByUser(r)) continue;
-        const kv = keyValues[i][0];
-        if (kv === null || kv === '') continue;
-        if (typeof kv === 'string' && kv.trim() === '') continue;
-        targets[i] = true;
-      }
+    for (let i = 0; i < n; i++) {
+      const checked = checkValues[i][0] === true;
+      if (!checked) continue;
+      targets[i] = true;
     }
 
     const segments = rc_targetsToSegments_(targets, startRow);
     if (segments.length === 0) {
-      ss.toast('対象行がありません（表示中かつデータありの行が0件）', '回収完了', 5);
+      ss.toast('対象行がありません（チェック済みの行が0件）', '回収完了', 5);
       return;
     }
 
@@ -82,9 +65,7 @@ function rc_bulkCheckVisibleRowsAndSetBatchId() {
     for (const seg of segments) {
       const len = seg.len;
 
-      const aArr = Array.from({ length: len }, () => [true]);
-      sheet.getRange(seg.start, RC_CHECKBOX_COL, len, 1).setValues(aArr);
-
+      // チェック済みの行にまとめIDを付与（チェックは既に入っているので設定不要）
       const mArr = Array.from({ length: len }, () => [batchId]);
       sheet.getRange(seg.start, RC_OUTPUT_COL, len, 1).setValues(mArr);
 
