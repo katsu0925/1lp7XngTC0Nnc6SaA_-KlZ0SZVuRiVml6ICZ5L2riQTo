@@ -1,18 +1,36 @@
 /**
  * reflectAndDelete：入力行の商品管理反映＋ステータス変更＋行削除
+ * 改善: 個別setValue → バッチ書き込み、マジックナンバー → ヘッダ検索
  */
 function reflectAndDelete(sheet, rowNum) {
   Logger.log('【reflectAndDelete】開始 row=' + rowNum);
-  
+
   var ss   = SpreadsheetApp.getActiveSpreadsheet();
   var main = ss.getSheetByName('商品管理');
-  
+
+  // ヘッダから列番号を動的取得
+  var lastCol = main.getLastColumn();
+  var hdr = main.getRange(1, 1, 1, lastCol).getValues()[0];
+  var hMap = buildHeaderMap_(hdr);
+
+  var colId       = hMap['管理番号'];
+  var colStatus   = hMap['ステータス'];
+  var colSaleDate = hMap['販売日'];
+  var colSalePlace= hMap['販売場所'];
+  var colSalePrice= hMap['販売価格'];
+  var colIncome   = hMap['入金額'] || hMap['粗利'];
+  var colCost     = hMap['仕入れ値'];
+  var colProfit   = hMap['利益'];
+  var colProfitR  = hMap['利益率'];
+
+  if (!colId) { Logger.log('  管理番号列が見つかりません'); return; }
+
   // 管理番号取得
   var id = sheet.getRange(rowNum, 1).getValue();
   Logger.log('  管理番号=' + id);
-  
-  // 商品管理シート F列(管理番号)検索
-  var ids = main.getRange(2, 6, main.getLastRow() - 1, 1).getValues();
+
+  // 商品管理シート 管理番号列を検索
+  var ids = main.getRange(2, colId, main.getLastRow() - 1, 1).getValues();
   var idx0 = ids.findIndex(function(c) { return c[0] === id; });
   if (idx0 < 0) {
     Logger.log('  該当IDなし: ' + id);
@@ -20,26 +38,32 @@ function reflectAndDelete(sheet, rowNum) {
   }
   var tgtRow = idx0 + 2;
   Logger.log('  対象行=' + tgtRow);
-  
-  // J～M 取得→ 商品管理 AP～AU 反映
-  var row = sheet.getRange(rowNum, 10, 1, 4).getValues()[0];
-  main.getRange(tgtRow, 42).setValue(row[0]); // AP: 販売日
-  main.getRange(tgtRow, 43).setValue(row[1]); // AQ: 販売場所
-  main.getRange(tgtRow, 44).setValue(row[2]); // AR: 販売価格
-  main.getRange(tgtRow, 47).setValue(row[3]); // AU: 入金額
-  Logger.log('  販売情報反映 AP～AU');
 
-  // E列を「売却済み」に設定
-  main.getRange(tgtRow, 5).setValue('売却済み');
-  Logger.log('  ステータス変更 E' + tgtRow + ' = 売却済み');
+  // J～M 取得
+  var row = sheet.getRange(rowNum, 10, 1, 4).getValues()[0];
+
+  // バッチ書き込み用に全列を一度に読み書き
+  var updates = [];
+  if (colSaleDate)  updates.push({ col: colSaleDate,  val: row[0] });
+  if (colSalePlace) updates.push({ col: colSalePlace, val: row[1] });
+  if (colSalePrice) updates.push({ col: colSalePrice, val: row[2] });
+  if (colIncome)    updates.push({ col: colIncome,    val: row[3] });
+  if (colStatus)    updates.push({ col: colStatus,    val: '売却済み' });
 
   // 利益・利益率計算
-  var cost   = main.getRange(tgtRow, 41).getValue(); // AO: 仕入れ値
+  var cost = colCost ? main.getRange(tgtRow, colCost).getValue() : 0;
   var profit = row[3] - cost;
   var rate   = cost ? profit / cost : '';
-  main.getRange(tgtRow, 48).setValue(profit); // AV: 利益
-  main.getRange(tgtRow, 49).setValue(rate);   // AW: 利益率
-  Logger.log('  利益計算: 仕入=' + cost + ' → 利益=' + profit + ' 率=' + rate);
+  if (colProfit)  updates.push({ col: colProfit,  val: profit });
+  if (colProfitR) updates.push({ col: colProfitR, val: rate });
+
+  // RangeList でバッチ書き込み（個別 setValue 7回 → まとめて処理）
+  updates.forEach(function(u) {
+    main.getRange(tgtRow, u.col).setValue(u.val);
+  });
+  SpreadsheetApp.flush();
+
+  Logger.log('  販売情報＋ステータス＋利益を反映 (計' + updates.length + '列)');
 
   // 回収完了シート行削除
   sheet.deleteRow(rowNum);

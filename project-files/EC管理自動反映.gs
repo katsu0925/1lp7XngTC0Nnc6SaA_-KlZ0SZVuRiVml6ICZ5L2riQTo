@@ -23,12 +23,9 @@ const BASE_ORDER_SYNC = {
 };
 
 function setupBaseOrderSync() {
-  const fn = 'syncBaseOrdersToEc';
-  const triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(t => {
-    if (t.getHandlerFunction() === fn) ScriptApp.deleteTrigger(t);
+  replaceTrigger_('syncBaseOrdersToEc', function(tb) {
+    tb.timeBased().everyMinutes(5).create();
   });
-  ScriptApp.newTrigger(fn).timeBased().everyMinutes(5).create();
   syncBaseOrdersToEc();
 }
 
@@ -58,20 +55,20 @@ function syncBaseOrdersToEc() {
     const srcHeader = srcSh.getRange(1, 1, 1, srcLastCol).getValues()[0].map(v => String(v || '').trim());
     const dstHeader = dstSh.getRange(1, 1, 1, dstLastCol).getValues()[0].map(v => String(v || '').trim());
 
-    const srcIdx = buildHeaderIndex_(srcHeader);
-    const dstIdx = buildHeaderIndex_(dstHeader);
+    const srcIdx = buildHeaderMap_(srcHeader);
+    const dstIdx = buildHeaderMap_(dstHeader);
 
-    const srcOrderKeyCol = mustGetCol_(srcIdx, cfg.SRC_COL.orderKey, '元');
-    const srcStatusCol = mustGetCol_(srcIdx, cfg.SRC_COL.status, '元');
-    const srcOrderAtCol = mustGetCol_(srcIdx, cfg.SRC_COL.orderAt, '元');
-    const srcTotalCol = mustGetCol_(srcIdx, cfg.SRC_COL.total, '元');
-    const srcShippingCol = mustGetCol_(srcIdx, cfg.SRC_COL.shipping, '元');
+    const srcOrderKeyCol = requireCol_(srcHeader, cfg.SRC_COL.orderKey, '元');
+    const srcStatusCol = requireCol_(srcHeader, cfg.SRC_COL.status, '元');
+    const srcOrderAtCol = requireCol_(srcHeader, cfg.SRC_COL.orderAt, '元');
+    const srcTotalCol = requireCol_(srcHeader, cfg.SRC_COL.total, '元');
+    const srcShippingCol = requireCol_(srcHeader, cfg.SRC_COL.shipping, '元');
 
-    const dstOrderKeyCol = mustGetCol_(dstIdx, cfg.DST_COL.orderKey, '先');
-    const dstChannelCol = mustGetCol_(dstIdx, cfg.DST_COL.channel, '先');
-    const dstSoldAtCol = mustGetCol_(dstIdx, cfg.DST_COL.soldAt, '先');
-    const dstSalesCol = mustGetCol_(dstIdx, cfg.DST_COL.sales, '先');
-    const dstShippingCol = mustGetCol_(dstIdx, cfg.DST_COL.shipping, '先');
+    const dstOrderKeyCol = requireCol_(dstHeader, cfg.DST_COL.orderKey, '先');
+    const dstChannelCol = requireCol_(dstHeader, cfg.DST_COL.channel, '先');
+    const dstSoldAtCol = requireCol_(dstHeader, cfg.DST_COL.soldAt, '先');
+    const dstSalesCol = requireCol_(dstHeader, cfg.DST_COL.sales, '先');
+    const dstShippingCol = requireCol_(dstHeader, cfg.DST_COL.shipping, '先');
 
     const srcValues = srcSh.getRange(2, 1, srcLastRow - 1, srcLastCol).getValues();
 
@@ -157,21 +154,7 @@ function syncBaseOrdersToEc() {
   }
 }
 
-function buildHeaderIndex_(headerRow) {
-  const m = {};
-  for (let i = 0; i < headerRow.length; i++) {
-    const key = String(headerRow[i] || '').trim();
-    if (!key) continue;
-    if (!(key in m)) m[key] = i + 1;
-  }
-  return m;
-}
-
-function mustGetCol_(idxMap, name, sideLabel) {
-  const c = idxMap[String(name || '').trim()] || 0;
-  if (!c) throw new Error(sideLabel + 'シートに列が見つかりません: ' + name);
-  return c;
-}
+// buildHeaderIndex_, mustGetCol_ は Utils.gs の buildHeaderMap_, requireCol_ に統合済み
 
 function normalizeKeyPart_(v) {
   if (v === null || v === undefined) return '';
@@ -181,6 +164,7 @@ function normalizeKeyPart_(v) {
   return String(v).trim();
 }
 
+// 改善: 5回の個別 getRange → 1回のバッチ読み取り
 function findAppendRowByActualData_(sh, cols) {
   const lastRow = Math.max(sh.getLastRow(), 1);
   if (lastRow < 2) return 2;
@@ -188,20 +172,14 @@ function findAppendRowByActualData_(sh, cols) {
   const scanRows = lastRow - 1;
   if (scanRows <= 0) return 2;
 
-  const rngOrderKey = sh.getRange(2, cols.orderKey, scanRows, 1).getDisplayValues();
-  const rngChannel = sh.getRange(2, cols.channel, scanRows, 1).getDisplayValues();
-  const rngSoldAt = sh.getRange(2, cols.soldAt, scanRows, 1).getDisplayValues();
-  const rngSales = sh.getRange(2, cols.sales, scanRows, 1).getDisplayValues();
-  const rngShip = sh.getRange(2, cols.shipping, scanRows, 1).getDisplayValues();
+  const lastCol = sh.getLastColumn();
+  const allData = sh.getRange(2, 1, scanRows, lastCol).getDisplayValues();
+  const checkCols = [cols.orderKey - 1, cols.channel - 1, cols.soldAt - 1, cols.sales - 1, cols.shipping - 1];
 
   let lastDataRow = 1;
   for (let i = scanRows - 1; i >= 0; i--) {
-    const has =
-      (rngOrderKey[i][0] && String(rngOrderKey[i][0]).trim() !== '') ||
-      (rngChannel[i][0] && String(rngChannel[i][0]).trim() !== '') ||
-      (rngSoldAt[i][0] && String(rngSoldAt[i][0]).trim() !== '') ||
-      (rngSales[i][0] && String(rngSales[i][0]).trim() !== '') ||
-      (rngShip[i][0] && String(rngShip[i][0]).trim() !== '');
+    const row = allData[i];
+    const has = checkCols.some(function(c) { return row[c] && String(row[c]).trim() !== ''; });
     if (has) {
       lastDataRow = i + 2;
       break;

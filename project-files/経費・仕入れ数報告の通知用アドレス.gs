@@ -21,23 +21,13 @@ const CONFIG_MAILER = {
 };
 
 function handleChange_Mailer(e) {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(30000)) return;
-  try {
+  withLock_(30000, function() {
     processAllPending();
-  } finally {
-    lock.releaseLock();
-  }
+  });
 }
 
 function handleEdit_Mailer(e) {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(30000)) return;
-  try {
-    processAllPending();
-  } finally {
-    lock.releaseLock();
-  }
+  handleChange_Mailer(e);
 }
 
 function processAllPending() {
@@ -115,16 +105,12 @@ function getRecipients(ss) {
   if (!sh) return [];
   const lastRow = sh.getLastRow();
   if (lastRow < CONFIG_MAILER.RECIPIENT_START_ROW) return [];
-  const col = columnA1ToNumber(CONFIG_MAILER.RECIPIENT_COL);
+  const col = colLetterToNum_(CONFIG_MAILER.RECIPIENT_COL);
   const vals = sh.getRange(CONFIG_MAILER.RECIPIENT_START_ROW, col, lastRow - CONFIG_MAILER.RECIPIENT_START_ROW + 1, 1).getDisplayValues();
   return Array.from(new Set(vals.map(r => String(r[0]).trim()).filter(s => s && s.indexOf("@") > 0)));
 }
 
-function columnA1ToNumber(a1) {
-  let n = 0;
-  for (let i = 0; i < a1.length; i++) n = n * 26 + (a1.charCodeAt(i) - 64);
-  return n;
-}
+// columnA1ToNumber は Utils.gs の colLetterToNum_ に統合済み
 
 function propKey(sheetName, id) {
   return "mail_sent__" + sheetName + "__" + id;

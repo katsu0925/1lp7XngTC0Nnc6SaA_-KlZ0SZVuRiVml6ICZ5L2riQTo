@@ -373,7 +373,13 @@ function processSelectedSales() {
     return;
   }
 
-  var summaryCol = 67;
+  var summaryCol = colMap['まとめID'] || 67;
+
+  var idCol = colMap['管理番号'];
+  if (!idCol) {
+    Browser.msgBox('エラー：管理番号列が見つかりません。');
+    return;
+  }
 
   var mainLastRow = main.getLastRow();
   if (mainLastRow < 2) {
@@ -381,7 +387,7 @@ function processSelectedSales() {
     return;
   }
 
-  var mainIds = main.getRange(2, 6, mainLastRow - 1, 1).getValues().flat();
+  var mainIds = main.getRange(2, idCol, mainLastRow - 1, 1).getValues().flat();
   var idToRowMap = {};
   mainIds.forEach(function (id, index) {
     var k = String(id).trim();
@@ -426,8 +432,9 @@ function processSelectedSales() {
   }
 
   var statusA1s = [];
+  var statusColLetter = colNumToLetter_(statusCol);
   for (var a = 0; a < statusRows.length; a++) {
-    statusA1s.push(_colToA1Letter_(statusCol) + statusRows[a]);
+    statusA1s.push(statusColLetter + statusRows[a]);
   }
   main.getRangeList(statusA1s).setValue('売却済み');
 
@@ -461,16 +468,7 @@ function processSelectedSales() {
 
   ss.toast(rowsToDelete.length + '件を処理しました（売却済み＋まとめID反映＋回収完了から削除）', '処理完了', 5);
 
-  function _colToA1Letter_(col) {
-    var s = '';
-    var n = col;
-    while (n > 0) {
-      var m = (n - 1) % 26;
-      s = String.fromCharCode(65 + m) + s;
-      n = Math.floor((n - 1) / 26);
-    }
-    return s;
-  }
+  // _colToA1Letter_ は Utils.gs の colNumToLetter_ に統合済み
 }
 
 function debugCheckColumns() {
@@ -636,8 +634,8 @@ function buildMedianMap_(aiSheet, fallbackBrandCol, fallbackMedianCol) {
 
   const header = aiSheet.getRange(1, 1, 1, lastCol).getValues()[0];
 
-  let brandCol = findHeaderCol_(header, ['ブランド', 'brand', 'Brand', 'BRAND']);
-  let medianCol = findHeaderCol_(header, ['中央値', '推定中央値', 'AI_推定中央値', 'AI_推定中央値(円)', 'median', 'Median']);
+  let brandCol = findColByCandidates_(header, ['ブランド', 'brand', 'Brand', 'BRAND']);
+  let medianCol = findColByCandidates_(header, ['中央値', '推定中央値', 'AI_推定中央値', 'AI_推定中央値(円)', 'median', 'Median']);
 
   if (!brandCol) brandCol = fallbackBrandCol;
   if (!medianCol) medianCol = fallbackMedianCol;
@@ -661,35 +659,12 @@ function buildMedianMap_(aiSheet, fallbackBrandCol, fallbackMedianCol) {
   return map;
 }
 
-function findHeaderCol_(headerRowValues, candidates) {
-  const normalized = headerRowValues.map(v => String(v || '').trim());
-  for (let c = 0; c < candidates.length; c++) {
-    const key = String(candidates[c]).trim();
-    for (let i = 0; i < normalized.length; i++) {
-      if (normalized[i] === key) return i + 1;
-      if (normalized[i].indexOf(key) !== -1) return i + 1;
-    }
-  }
-  return 0;
-}
+// findHeaderCol_, toNumber_ は Utils.gs に統合済み
+// normalizeBrand_ は trim のみのため Utils.normalizeText_ でカバー
 
 function normalizeBrand_(v) {
   if (v === null || v === undefined) return '';
   const s = String(v).trim();
   if (!s) return '';
   return s;
-}
-
-function toNumber_(v) {
-  if (v === null || v === undefined) return null;
-  if (typeof v === 'number') {
-    if (isNaN(v)) return null;
-    return v;
-  }
-  const s = String(v).replace(/[,￥円\s]/g, '').trim();
-  if (!s) return null;
-  if (s === '-' || s.toLowerCase() === 'nan' || s.toLowerCase() === 'null') return null;
-  const n = Number(s);
-  if (isNaN(n)) return null;
-  return n;
 }

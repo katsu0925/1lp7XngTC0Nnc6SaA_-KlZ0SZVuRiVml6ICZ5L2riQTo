@@ -90,9 +90,9 @@ function updateRequestSheetLink_(name, receiptNo, url) {
   // ── 1行目ヘッダから列番号を特定 ──
   const headers = sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
 
-  const receiptCol = findColByHeader_(headers, HEADER_RECEIPT);  // 受付番号列
-  const nameCol    = findColByHeader_(headers, HEADER_NAME);     // 会社名/氏名列
-  const linkCol    = findColByHeader_(headers, HEADER_LINK);     // リンク列
+  const receiptCol = findColByName_(headers, HEADER_RECEIPT);  // 受付番号列
+  const nameCol    = findColByName_(headers, HEADER_NAME);     // 会社名/氏名列
+  const linkCol    = findColByName_(headers, HEADER_LINK);     // リンク列
 
   if (receiptCol === -1) throw new Error('ヘッダに「' + HEADER_RECEIPT + '」が見つかりません');
   if (nameCol === -1)    throw new Error('ヘッダに「' + HEADER_NAME + '」が見つかりません');
@@ -126,15 +126,7 @@ function updateRequestSheetLink_(name, receiptNo, url) {
   }
 }
 
-// ヘッダ配列から列番号（1始まり）を返す。見つからなければ -1
-function findColByHeader_(headers, headerName) {
-  for (let c = 0; c < headers.length; c++) {
-    if (String(headers[c] || '').trim() === headerName) {
-      return c + 1;   // 1-indexed
-    }
-  }
-  return -1;
-}
+// findColByHeader_ は Utils.gs の findColByName_ に統合済み
 
 // ──────────────────────────────────
 // 以下は変更なし（そのまま残す）

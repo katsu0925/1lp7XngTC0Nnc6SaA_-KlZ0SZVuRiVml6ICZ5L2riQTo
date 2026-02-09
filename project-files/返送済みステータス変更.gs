@@ -11,12 +11,9 @@ const RETURN_STATUS_SYNC_CONFIG = {
 };
 
 function setupHourlyTrigger_updateReturnStatus() {
-  const fn = "updateReturnStatusHourly";
-  const triggers = ScriptApp.getProjectTriggers();
-  for (const t of triggers) {
-    if (t.getHandlerFunction && t.getHandlerFunction() === fn) ScriptApp.deleteTrigger(t);
-  }
-  ScriptApp.newTrigger(fn).timeBased().everyHours(1).create();
+  replaceTrigger_("updateReturnStatusHourly", function(tb) {
+    tb.timeBased().everyHours(1).create();
+  });
 }
 
 function updateReturnStatusHourly() {
@@ -24,10 +21,12 @@ function updateReturnStatusHourly() {
 }
 
 function updateReturnStatusNow() {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(25000)) return;
+  withLock_(25000, function() {
+    updateReturnStatusNowInner_();
+  });
+}
 
-  try {
+function updateReturnStatusNowInner_() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const productSheet = ss.getSheetByName(RETURN_STATUS_SYNC_CONFIG.PRODUCT_SHEET_NAME);
     const returnSheet = ss.getSheetByName(RETURN_STATUS_SYNC_CONFIG.RETURN_SHEET_NAME);
@@ -43,8 +42,8 @@ function updateReturnStatusNow() {
     if (productLastRow <= productHeaderRow || productLastCol <= 0) return;
 
     const header = productSheet.getRange(productHeaderRow, 1, 1, productLastCol).getDisplayValues()[0];
-    const idCol = findHeaderCol_(header, RETURN_STATUS_SYNC_CONFIG.PRODUCT_ID_HEADER_NAME);
-    const statusCol = findHeaderCol_(header, RETURN_STATUS_SYNC_CONFIG.PRODUCT_STATUS_HEADER_NAME);
+    const idCol = requireCol_(header, RETURN_STATUS_SYNC_CONFIG.PRODUCT_ID_HEADER_NAME, '商品管理');
+    const statusCol = requireCol_(header, RETURN_STATUS_SYNC_CONFIG.PRODUCT_STATUS_HEADER_NAME, '商品管理');
 
     const numRows = productLastRow - productHeaderRow;
 
@@ -74,9 +73,6 @@ function updateReturnStatusNow() {
     }
 
     if (changed) statusRange.setValues(statusVals);
-  } finally {
-    lock.releaseLock();
-  }
 }
 
 function buildReturnedIdSet_(returnSheet) {
@@ -100,15 +96,7 @@ function buildReturnedIdSet_(returnSheet) {
   return set;
 }
 
-function findHeaderCol_(headerRowValues, headerName) {
-  const target = String(headerName || "").trim();
-  if (!target) throw new Error("ヘッダ名が空です");
-  for (let i = 0; i < headerRowValues.length; i++) {
-    const h = String(headerRowValues[i] ?? "").trim();
-    if (h === target) return i + 1;
-  }
-  throw new Error("ヘッダが見つかりません: " + target);
-}
+// findHeaderCol_ は Utils.gs の requireCol_ に統合済み
 
 function splitReturnIds_(text) {
   const raw = (text ?? "").toString();
@@ -126,16 +114,7 @@ function splitReturnIds_(text) {
   return out;
 }
 
-function normalizeText_(v) {
-  if (v === null || v === undefined) return "";
-  let s = v.toString();
-  s = s.replace(/\u00A0/g, " ").replace(/[　]/g, " ").replace(/[\u200B-\u200D\uFEFF]/g, "");
-  s = s.trim();
-  if (!s) return "";
-  s = s.replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
-  s = s.trim();
-  return s;
-}
+// normalizeText_ は Utils.gs に統合済み
 
 function normalizeId_(v) {
   return normalizeText_(v);
