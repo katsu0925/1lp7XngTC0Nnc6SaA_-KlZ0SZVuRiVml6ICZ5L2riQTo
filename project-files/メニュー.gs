@@ -206,13 +206,15 @@ function createBuyerSheet() {
     'input { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; }' +
     'button { margin-top: 16px; padding: 8px 20px; }' +
     '#spinner { display:none; margin-top:12px; text-align:center; color:#666; }' +
+    '.loader { display:inline-block; width:18px; height:18px; border:3px solid #ccc; border-top:3px solid #333; border-radius:50%; animation:spin .8s linear infinite; vertical-align:middle; margin-right:6px; }' +
+    '@keyframes spin { to { transform:rotate(360deg); } }' +
     '</style>' +
+    '<div id="spinner"><span class="loader"></span> 処理中...</div>' +
     '<label>会社名 / 氏名</label>' +
     '<input type="text" id="name" />' +
     '<label>受付番号</label>' +
     '<input type="text" id="number" />' +
     '<br><button id="btn" onclick="submit()">実行</button>' +
-    '<div id="spinner">処理中...</div>' +
     '<script>' +
     'function submit(){' +
     '  var name = document.getElementById("name").value;' +
@@ -329,8 +331,9 @@ function createBuyerSheetWithInput(inputName, inputNumber) {
 
     var cost = toNumber_(listRow[10]) || 0;
     var price = calcPriceTier_(cost);
+    var priceText = price.toLocaleString('ja-JP') + '円';
 
-    exportData.push([false, boxId, targetId, brand, aiTitle, item, size, condition, damageDetail, measurementText, description, price]);
+    exportData.push([false, boxId, targetId, brand, aiTitle, item, size, condition, damageDetail, measurementText, description, priceText]);
   });
 
   // --- 1行目：A1にまとめID、B1に値、E1に会社名/氏名、I1に受付番号 ---
