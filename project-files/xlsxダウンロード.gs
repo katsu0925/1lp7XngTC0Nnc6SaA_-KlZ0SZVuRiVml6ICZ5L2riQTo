@@ -17,7 +17,7 @@ const REQUEST_SHEET_NAME = '依頼管理';
 // ★変更: ヘッダ名で列を特定する
 const HEADER_RECEIPT = '受付番号';   // A列にあるはずのヘッダ名
 const HEADER_NAME = '会社名/氏名';   // 名前列のヘッダ
-const HEADER_LINK = 'リンク';        // URL を入れる列のヘッダ名
+const HEADER_LINK = '確認リンク';        // URL を入れる列のヘッダ名
 
 // ──────────────────────────────────
 // メイン関数（変更箇所のみコメント付き）
@@ -92,7 +92,7 @@ function updateRequestSheetLink_(name, receiptNo, url) {
 
   const receiptCol = findColByName_(headers, HEADER_RECEIPT);  // 受付番号列
   const nameCol    = findColByName_(headers, HEADER_NAME);     // 会社名/氏名列
-  const linkCol    = findColByName_(headers, HEADER_LINK);     // リンク列
+  const linkCol    = findColByName_(headers, HEADER_LINK);     // 確認リンク列
 
   if (receiptCol === -1) throw new Error('ヘッダに「' + HEADER_RECEIPT + '」が見つかりません');
   if (nameCol === -1)    throw new Error('ヘッダに「' + HEADER_NAME + '」が見つかりません');
