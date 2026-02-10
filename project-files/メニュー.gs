@@ -205,18 +205,23 @@ function createBuyerSheet() {
     'label { display: block; margin-top: 10px; font-weight: bold; }' +
     'input { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; }' +
     'button { margin-top: 16px; padding: 8px 20px; }' +
+    '#spinner { display:none; margin-top:12px; text-align:center; color:#666; }' +
     '</style>' +
     '<label>会社名 / 氏名</label>' +
     '<input type="text" id="name" />' +
     '<label>受付番号</label>' +
     '<input type="text" id="number" />' +
-    '<br><button onclick="submit()">実行</button>' +
+    '<br><button id="btn" onclick="submit()">実行</button>' +
+    '<div id="spinner">処理中...</div>' +
     '<script>' +
     'function submit(){' +
     '  var name = document.getElementById("name").value;' +
     '  var number = document.getElementById("number").value;' +
     '  if(!name || !number){ alert("両方入力してください"); return; }' +
+    '  document.getElementById("btn").disabled = true;' +
+    '  document.getElementById("spinner").style.display = "block";' +
     '  google.script.run.withSuccessHandler(function(){ google.script.host.close(); })' +
+    '    .withFailureHandler(function(e){ alert("エラー: "+e.message); document.getElementById("btn").disabled=false; document.getElementById("spinner").style.display="none"; })' +
     '    .createBuyerSheetWithInput(name, number);' +
     '}' +
     '</script>'
@@ -323,7 +328,7 @@ function createBuyerSheetWithInput(inputName, inputNumber) {
       "\n※素人採寸のため多少の誤差はご了承ください。";
 
     var cost = toNumber_(listRow[10]) || 0;
-    var price = cost + calcShippingFee_(cost);
+    var price = calcPriceTier_(cost);
 
     exportData.push([false, boxId, targetId, brand, aiTitle, item, size, condition, damageDetail, measurementText, description, price]);
   });
@@ -484,7 +489,7 @@ function sortByField(sheet) {
   }
 }
 
-function calcShippingFee_(n) {
+function calcPriceTier_(n) {
   var table = [
     [50, 100], [100, 220], [149, 330], [199, 385], [249, 495],
     [299, 550], [349, 605], [399, 660], [449, 715], [499, 825],
