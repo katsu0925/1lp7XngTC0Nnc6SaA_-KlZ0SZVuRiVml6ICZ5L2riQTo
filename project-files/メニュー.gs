@@ -272,7 +272,7 @@ function createBuyerSheetWithInput(inputName, inputNumber) {
   var idx = {};
   headers.forEach(function (h, i) { idx[h] = i; });
 
-  var headerRow = ['確認', '箱ID', '管理番号(照合用)', 'ブランド', 'AIタイトル候補', 'アイテム', 'サイズ', '状態', '傷汚れ詳細', '採寸情報', '即出品用説明文（コピペ用）'];
+  var headerRow = ['確認', '箱ID', '管理番号(照合用)', 'ブランド', 'AIタイトル候補', 'アイテム', 'サイズ', '状態', '傷汚れ詳細', '採寸情報', '即出品用説明文（コピペ用）', '金額'];
   var exportData = [headerRow];
 
   targetRows.forEach(function (listRow) {
@@ -322,7 +322,10 @@ function createBuyerSheetWithInput(inputName, inputNumber) {
     description += "【実寸(cm)】\n" + measurementText + "\n" +
       "\n※素人採寸のため多少の誤差はご了承ください。";
 
-    exportData.push([false, boxId, targetId, brand, aiTitle, item, size, condition, damageDetail, measurementText, description]);
+    var cost = toNumber_(listRow[10]) || 0;
+    var price = cost + calcShippingFee_(cost);
+
+    exportData.push([false, boxId, targetId, brand, aiTitle, item, size, condition, damageDetail, measurementText, description, price]);
   });
 
   // --- 1行目：A1にまとめID、B1に値、E1に会社名/氏名、I1に受付番号 ---
@@ -479,5 +482,22 @@ function sortByField(sheet) {
   if (colIdx && lastRow >= 7) {
     sheet.getRange(7, 1, lastRow - 6, sheet.getLastColumn()).sort({ column: colIdx, ascending: true });
   }
+}
+
+function calcShippingFee_(n) {
+  var table = [
+    [50, 100], [100, 220], [149, 330], [199, 385], [249, 495],
+    [299, 550], [349, 605], [399, 660], [449, 715], [499, 825],
+    [549, 880], [599, 935], [649, 990], [699, 1045], [749, 1155],
+    [799, 1210], [849, 1265], [899, 1320], [949, 1375], [999, 1485],
+    [1049, 1540], [1099, 1595], [1149, 1650], [1199, 1705], [1249, 1815],
+    [1299, 1870], [1349, 1925], [1399, 1980], [1449, 2035], [1499, 2145],
+    [1549, 2200], [1599, 2255], [1649, 2310], [1699, 2365]
+  ];
+  if (n < 0) return 0;
+  for (var i = 0; i < table.length; i++) {
+    if (n <= table[i][0]) return table[i][1];
+  }
+  return table[table.length - 1][1];
 }
 
